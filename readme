@@ -1,1 +1,199 @@
-read me
+# Operational Resilience in Fraud Detection (Master Thesis — CY Tech / CY Cergy Paris Université)
+
+This repository contains the research work I conducted as part of my **Master’s thesis at CY Cergy Paris Université (CY Tech), Cergy, France**.
+The project studies **fraud detection as an operational decision problem** under real-world constraints such as:
+
+* **Delayed verification / label delay** (fraud confirmation comes days later)
+* **Limited investigator capacity (Top-K budget)** (only a fixed number of alerts can be reviewed daily)
+* **Value asymmetry** (not all fraud amounts are equal)
+* **Adversarial drift** (fraud patterns change over time)
+
+Instead of optimizing only classical ML metrics, the research focuses on **business-aligned evaluation**, especially **Net Value / ROI**.
+
+---
+
+## Contents
+
+* [`Operational_Resilience_in_Fraud_Detection.ipynb`](./Operational_Resilience_in_Fraud_Detection.ipynb): main notebook containing:
+
+  * data loading and preprocessing
+  * simulation setup (pseudo-days, rolling evaluation)
+  * evaluation metrics (Precision@K, Dollar-Precision@K, Net Value)
+  * Experiments 1–6 and results plots
+
+---
+
+## Problem Framing
+
+In production, fraud detection is not just *“predict fraud vs non-fraud”*.
+It is *“which transactions should we investigate today, given that investigations cost money and labels arrive late?”*
+
+This repo models a realistic loop:
+
+1. Transactions arrive daily
+2. A model produces fraud scores
+3. A selection policy chooses alerts for investigation (Top-K or gated)
+4. Verified labels arrive later (delay)
+5. The model is periodically retrained on the most recent verified window
+
+---
+
+## Dataset
+
+The notebook uses the well-known **credit card fraud dataset (Dal Pozzolo / ULB benchmark)**, accessed via Kaggle.
+
+Key properties:
+
+* Highly imbalanced fraud rate
+* Features include anonymized PCA components (`V1…V28`), plus `Time` and `Amount`
+* Target label: `Class` (0 = normal, 1 = fraud)
+
+> **Note:** The original dataset covers a short window. The notebook converts time into **pseudo-days** (e.g., 30 “days”) to simulate rolling retraining, label delay, and drift experiments.
+
+---
+
+## Methods / Models
+
+The notebook uses:
+
+* **Logistic Regression (LR)** as a fast baseline / screening model
+* **XGBoost (XGB)** as a stronger non-linear classifier / ranking model
+* Variants including **value/amount-aware weighting**
+* Policy layer experiments including **cost-aware gating (FACL)**
+
+---
+
+## Operational Metrics (Business-aligned)
+
+The core evaluation is aligned with real investigation operations:
+
+* **Precision@K**
+  How many of the top K investigated alerts are true fraud?
+
+* **Dollar-Precision@K (DP@K)**
+  How “fraud-heavy” is the *money* inside the investigated queue?
+
+* **Net Value (ROI)** *(primary KPI)*
+  A simplified daily profit metric:
+
+[
+\text{NetValue} = \alpha \cdot \text{FraudEUR_selected} - c \cdot N_{\text{selected}}
+]
+
+Where:
+
+* (\alpha): recovery rate assumption (e.g., 0.70)
+* (c): investigation cost per alert (e.g., €10)
+* (N_{\text{selected}}): number of investigated alerts
+
+---
+
+## Experiments
+
+The notebook is organized into a progression of experiments that add operational realism:
+
+### Experiment 1 — Single-day baseline comparison (snapshot)
+
+Compares LR vs XGB variants on a single day (e.g., Day 10), using top-K evaluation.
+
+### Experiment 2 — Rolling evaluation (retraining with time)
+
+Simulates daily operation using a rolling window (e.g., 10-day rolling train window) and evaluates stability over multiple days.
+
+### Experiment 2b — Value-aware reranking
+
+Explores the impact of incorporating transaction value/amount into ranking quality and ROI-related metrics.
+
+### Experiment 3 — Label delay (e.g., 3-day delay)
+
+Implements delayed training labels (training day *d* can only use labels up to *d-3*) and evaluates the impact on top-K and ROI.
+
+### Experiment 4 — Weak proxy labels (weak supervision)
+
+Tests the risk of using a heuristic “proxy label” as ground truth.
+This experiment highlights how proxy-as-target can severely degrade operational performance.
+
+### Experiment 5 — Active learning (cost-aware variants)
+
+Simulates different selection strategies (e.g., greedy/uncertainty/random) under limited labeling/review budgets and evaluates ROI impact.
+
+### Experiment 6 — Cost-Aware Gating (FACL)
+
+Introduces a gating layer that selects alerts based on **expected financial value**, throttling investigations when expected ROI is low (especially helpful under drift).
+
+---
+
+## Key Takeaways (High-level)
+
+* **Operational metrics matter:** global metrics can look fine while ROI is poor.
+* **Proxy labels can be dangerous:** heuristics are useful as features, but using them as ground truth can bias learning and destroy ROI.
+* **Cost-aware gating can improve resilience:** dynamically reducing investigations under weak signal / drift can protect profitability.
+
+---
+
+## How to Run
+
+### Option A — Google Colab (recommended)
+
+1. Open the notebook in Colab
+2. Run all cells
+3. Ensure Kaggle access works (the notebook uses `kagglehub`)
+
+### Option B — Local environment
+
+#### 1) Create environment
+
+```bash
+python -m venv .venv
+source .venv/bin/activate  # (Windows: .venv\Scripts\activate)
+pip install -U pip
+```
+
+#### 2) Install dependencies
+
+```bash
+pip install numpy pandas matplotlib seaborn scikit-learn xgboost kagglehub
+```
+
+#### 3) Launch Jupyter
+
+```bash
+pip install notebook
+jupyter notebook
+```
+
+Open `Operational_Resilience_in_Fraud_Detection.ipynb` and run cells top-to-bottom.
+
+---
+
+## Reproducibility Notes
+
+* Results can vary slightly depending on:
+
+  * random seeds
+  * XGBoost version
+  * environment differences
+* For strict reproducibility, consider setting explicit random seeds in the notebook and logging package versions.
+
+---
+
+## Author
+
+**Aya Amarass**
+Master’s student — **CY Cergy Paris Université (CY Tech), Cergy, France**
+Research topic: Operational resilience in fraud detection (delay, drift, budget constraints, ROI)
+
+---
+
+## License
+
+This repository contains research work developed as part of a Master’s thesis at CY Cergy Paris Université (CY Tech).
+
+The code, experiments, and results are intended solely for academic, educational, and research purposes.
+
+Commercial use, deployment in production systems, or redistribution for profit is not permitted without explicit permission from the author.
+
+Proper citation is required if this work is referenced or reused in academic publications, reports, or derivative research.
+
+© 2025 — Aya Amarass
+
